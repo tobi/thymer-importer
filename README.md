@@ -2,7 +2,7 @@
 
 A global AppPlugin that imports CSV files into any Thymer collection. One record per row.
 
-![alt text](importer-csv.png)
+![alt text](import-csv.png)
 
 
 ## Features
