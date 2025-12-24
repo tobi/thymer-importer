@@ -1,0 +1,6 @@
+{
+	"ver": 1,
+	"name": "CSV Importer",
+	"icon": "download",
+	"description": "Import records from CSV files to any collection"
+}

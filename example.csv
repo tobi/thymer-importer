@@ -1,0 +1,5 @@
+title,body,property_Status,property_Priority
+"First Task","This is the body content for the first task",To Do,High
+"Second Task","Body with ""quoted"" text inside",In Progress,Medium
+"Third Task","Simple body text",Done,Low
+"Task without body",,To Do,High
