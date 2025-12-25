@@ -9,7 +9,7 @@
  * - Smart defaults for columns named title, body, or property_*
  */
 
-export class Plugin extends AppPlugin {
+class Plugin extends AppPlugin {
 
     onLoad() {
         // Inject CSS for modal dialog
