@@ -9,61 +9,6 @@
  * - Smart defaults for columns named title, body, or property_*
  */
 
-/**
- * Get all records from a collection.
- * Note: The types.d.ts says collection.getAllRecords() exists, but it doesn't at runtime.
- * This helper uses the internal collectionRoot.cguids array and data.getRecord() instead.
- *
- * @param {DataAPI} dataApi - The plugin's this.data API
- * @param {PluginCollectionAPI} collection - Collection from data.getAllCollections()
- * @returns {{record: PluginRecord, title: string}[]} Array of records with their titles
- */
-function getCollectionRecords(dataApi, collection) {
-    const recordGuids = collection.collectionRoot?.cguids || [];
-    const records = [];
-
-    for (const guid of recordGuids) {
-        const record = dataApi.getRecord(guid);
-        if (!record) continue;
-
-        // Title is stored as ['text', 'actual title'] in row.kv.title
-        const titleArr = record.row.kv?.title;
-        const title = Array.isArray(titleArr) ? titleArr[1] : '';
-
-        records.push({ record, title });
-    }
-
-    return records;
-}
-
-/**
- * Get the title of a record.
- * Note: record.getName() doesn't exist at runtime despite types.d.ts saying it does.
- *
- * @param {PluginRecord} record
- * @returns {string}
- */
-function getRecordTitle(record) {
-    const titleArr = record.row.kv?.title;
-    return Array.isArray(titleArr) ? titleArr[1] : '';
-}
-
-/**
- * Get a property value from a record's raw data.
- * Note: record.prop() and record.text() may not work for all properties.
- *
- * @param {PluginRecord} record
- * @param {string} fieldId - The field ID (not label)
- * @returns {any}
- */
-function getRecordFieldValue(record, fieldId) {
-    const fieldVal = record.row.kv?.[fieldId];
-    if (Array.isArray(fieldVal)) {
-        return fieldVal[1]; // ['type', value] format
-    }
-    return fieldVal;
-}
-
 export class Plugin extends AppPlugin {
 
     onLoad() {
@@ -697,26 +642,21 @@ export class Plugin extends AppPlugin {
     async executeImport(headers, rows) {
         const { selectedCollection, uniqueField, mappings } = this.dialogState;
 
-        // Get collection for creating records
-        const collections = await this.data.getAllCollections();
-        const collection = collections.find(c => c.getGuid() === selectedCollection.getGuid());
-        if (!collection) {
-            throw new Error('Collection not found');
-        }
+        // Use the selected collection directly
+        const collection = selectedCollection;
 
         // Build existing records map for deduplication
         let existingByKey = new Map();
         if (uniqueField !== '__none__') {
-            const collectionRecords = getCollectionRecords(this.data, collection);
-            console.log(`[CSV Import] Found ${collectionRecords.length} records in collection`);
+            const records = await collection.getAllRecords();
+            console.log(`[CSV Import] Found ${records.length} records in collection`);
 
-            for (const { record, title } of collectionRecords) {
+            for (const record of records) {
                 let key;
                 if (uniqueField === '__title__') {
-                    key = title?.toLowerCase()?.trim();
+                    key = record.getName()?.toLowerCase()?.trim();
                 } else {
-                    const fieldVal = getRecordFieldValue(record, uniqueField);
-                    key = fieldVal?.toString()?.toLowerCase()?.trim();
+                    key = record.prop(uniqueField)?.text()?.toLowerCase()?.trim();
                 }
                 if (key) {
                     existingByKey.set(key, record);
@@ -810,42 +750,14 @@ export class Plugin extends AppPlugin {
                 existingByKey.set(key, record);
             }
 
-            // Set properties - try multiple approaches
-            // First, get available properties via getProperties()
-            const recordProps = record.getProperties();
-            const allProps = record.getAllProperties();
-            console.log(`[CSV Import] record.getProperties():`, recordProps);
-            console.log(`[CSV Import] record.getAllProperties():`, allProps);
-            console.log(`[CSV Import] record.row.kv:`, record.row?.kv);
-
+            // Set properties
             for (const { idx, propertyId, propertyLabel } of propertyMappings) {
                 const value = (row[idx] || '').trim();
                 if (!value) continue;
 
-                // Approach 1: Try record.prop() by label then ID
-                let prop = record.prop(propertyLabel);
-                if (!prop) {
-                    prop = record.prop(propertyId);
-                }
-
+                const prop = record.prop(propertyLabel) || record.prop(propertyId);
                 if (prop) {
-                    console.log(`[CSV Import] Setting ${propertyLabel} = "${value}" via prop.set()`);
                     prop.set(value);
-                } else {
-                    // Approach 2: Find in getProperties() array
-                    const fromArray = recordProps?.find(p =>
-                        p.label === propertyLabel || p.id === propertyId
-                    );
-                    if (fromArray) {
-                        console.log(`[CSV Import] Found ${propertyLabel} in getProperties(), setting...`);
-                        fromArray.set(value);
-                    } else {
-                        // Approach 3: Direct kv mutation as last resort
-                        console.log(`[CSV Import] Property '${propertyLabel}' not found, trying direct kv`);
-                        if (record.row?.kv) {
-                            record.row.kv[propertyId] = ['text', value];
-                        }
-                    }
                 }
             }
 
