@@ -5,6 +5,11 @@ description: Build Thymer plugins - use when the user asks to create, modify, or
 
 # Thymer Plugin Development
 
+## References
+
+- [types.d.ts](references/types.d.ts) - Full SDK type definitions
+- [sdk-reference.md](references/sdk-reference.md) - Additional SDK notes
+
 Use this skill when building plugins for the Thymer app (thymer.com). Thymer plugins extend the application with custom functionality like status bar items, custom views, formulas, and more.
 
 ## Plugin Types
